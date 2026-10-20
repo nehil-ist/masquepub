@@ -28,11 +28,14 @@ class ManageTest(OfflineCase):
         j = self.mod.post("mg_dash")[1]
         self.assertEqual(j["role"], "mod")
         self.assertEqual(set(j["queue"]), {"reports", "appeals", "held", "suspended"})
+        self.assertIsInstance(j["flagged"], list)
         self.assertNotIn("site", j)
         j = self.adm.post("mg_dash")[1]
         self.assertEqual(j["role"], "admin")
         self.assertGreaterEqual(j["site"]["users"], 4)
         self.assertIn("queue", j)
+        self.assertLessEqual(len(j["newest"]), 5)
+        self.assertEqual(set(j["newest"][0]), {"name", "nick", "avatar", "ts"})
 
     def test_users_crud(self):
         adm = self.adm
