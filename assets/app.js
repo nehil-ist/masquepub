@@ -16835,6 +16835,27 @@ function mgPager(r, go) {
     h("button", { type: "button", class: "ghost", disabled: to >= r.total, onclick: () => go(r.page + 1) }, "Next \u2192"),
   );
 }
+/* Dashboard tiles: a number (gothic) over a mono label. With `to` the tile is a button that opens the page behind it; `hot` lights it ember when there is something waiting. */
+const mgNum = (n) => (+n >= 10000 ? (+n).toLocaleString() : String(n)),
+  mgTile = (n, l, o = {}) =>
+    h(
+      o.to ? "button" : "div",
+      { class: "dtile" + (o.hot && +n > 0 ? " hot" : "") + (o.to ? " lnk" : ""), ...(o.to ? { type: "button", onclick: () => (location.hash = o.to) } : {}) },
+      h("b", {}, mgNum(n)),
+      h("span", {}, l),
+    ),
+  mgGrid = (cols, ...tiles) => h("div", { class: "dgrid c" + cols }, ...tiles),
+  mgSec = (t, n) => h("div", { class: "fsh" }, h("span", {}, t), n != null ? h("i", { class: "fcn" }, String(n)) : null),
+  mgLink = (icon, title, sub, hash) =>
+    h(
+      "button",
+      { type: "button", class: "chat setgo", onclick: () => (location.hash = hash) },
+      h("span", { class: "seti", "aria-hidden": "true" }, ic(icon, 20)),
+      h("div", { class: "cx" }, h("b", {}, title), h("span", { class: "hint" }, sub)),
+      h("span", { class: "hint", "aria-hidden": "true" }, "›"),
+    ),
+  mgRows = (list, empty) =>
+    list.length ? h("div", { class: "dlist" }, ...list) : h("div", { class: "xempty" }, empty);
 async function dashPage() {
   const d = await api("mg_dash"),
     k = d.mine,
