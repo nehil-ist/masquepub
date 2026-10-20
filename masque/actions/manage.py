@@ -109,7 +109,7 @@ def _user_row(ctx: Context, r: dict) -> dict:
     """One account as an admin sees it. Masque posts and comments are left out of the counts."""
     i = int(r["id"])
     return {
-        "id": i, "name": r["name"], "nick": r["nick"], "role": ctx.users.role_of({"name": r["name"], "role": int(r["role"] or 0)}),
+        "id": i, "name": r["name"], "nick": r["nick"], "avatar": r.get("avatar") or "", "role": ctx.users.role_of({"name": r["name"], "role": int(r["role"] or 0)}),
         "ts": int(r["ts"] or 0), "la": int(r["la"] or 0), "sus": int(r["sus"] or 0),
         "posts": _count(ctx.db, "SELECT COUNT(*) FROM posts WHERE uid=? AND mid=0 AND anon=0", (i,)),
         "comments": _count(ctx.db, "SELECT COUNT(*) FROM comments WHERE uid=? AND mid=0", (i,)),
@@ -124,7 +124,7 @@ class UserList(Action):
     def handle(self, ctx: Context) -> Reply:
         _admin(ctx)
         q, want = php_trim(ctx.form("q"))[:20], ctx.form("role")
-        sql, p = "SELECT id,name,nick,role,ts,la,sus FROM users", []
+        sql, p = "SELECT id,name,nick,role,ts,la,sus,avatar FROM users", []
         if q:
             sql += " WHERE name LIKE ? ESCAPE '\\' OR nick LIKE ? ESCAPE '\\'"
             p += [_like(q), _like(q)]
@@ -144,7 +144,7 @@ class UserGet(Action):
 
     def handle(self, ctx: Context) -> Reply:
         _admin(ctx)
-        r = ctx.db.one("SELECT id,name,nick,role,ts,la,sus,bio,priv,askon,dm,mail FROM users WHERE name=?", (php_trim(ctx.form("name")),))
+        r = ctx.db.one("SELECT id,name,nick,role,ts,la,sus,bio,priv,askon,dm,mail,avatar FROM users WHERE name=?", (php_trim(ctx.form("name")),))
         if not r:
             return Reply.error("No such user.", 404)
         out = _user_row(ctx, r)
