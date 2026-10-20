@@ -70,6 +70,7 @@ class Dashboard(Action):
                 "suspended": _count(db, "SELECT COUNT(*) FROM users WHERE sus>?", (n,)),
             }
             out["actions"] = db.all("SELECT act,tgt,ts FROM alog WHERE aid=? ORDER BY id DESC LIMIT 8", (me,))
+            out["flagged"] = self._flagged(db)
         if m["admin"]:
             out["site"] = {
                 "users": _count(db, "SELECT COUNT(*) FROM users"),
@@ -79,7 +80,28 @@ class Dashboard(Action):
                 "posts": _count(db, "SELECT COUNT(*) FROM posts"),
                 "comments": _count(db, "SELECT COUNT(*) FROM comments"),
             }
+            out["newest"] = db.all("SELECT name,nick,avatar,ts FROM users ORDER BY id DESC LIMIT 5")
         return Reply(out)
+
+    _SNIP = {"post": "SELECT substr(cap,1,90) t,(img!='') himg FROM posts WHERE id=?", "comment": "SELECT substr(txt,1,90) t,0 himg FROM comments WHERE id=?",
+             "ask": "SELECT substr(txt,1,90) t,0 himg FROM asks WHERE id=?"}
+
+    @classmethod
+    def _flagged(cls, db) -> list:
+        """The newest reported things, one line each. Only the text and the reason: who wrote it is never shown here (Masque posts stay anonymous)."""
+        out, seen = [], set()
+        for r in db.all("SELECT kind,tid,why,ts FROM reports ORDER BY id DESC LIMIT 40"):
+            key = "%s:%s" % (r["kind"], r["tid"])
+            if key in seen:
+                continue
+            seen.add(key)
+            q = cls._SNIP.get(r["kind"])
+            row = db.one(q, (r["tid"],)) if q else None
+            txt = (row["t"] if row else "") or ("(photo)" if row and int(row["himg"]) else "")
+            out.append({"kind": r["kind"], "txt": txt, "why": (r["why"] or "")[:60], "ts": int(r["ts"] or 0)})
+            if len(out) >= 5:
+                break
+        return out
 
 
 # ---------------------------------------------------------------- users CRUD (admins)
