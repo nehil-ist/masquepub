@@ -16832,49 +16832,104 @@ function mgPager(r, go) {
     h("button", { type: "button", class: "ghost", disabled: to >= r.total, onclick: () => go(r.page + 1) }, "Next"),
   );
 }
+/* Dashboard tiles: a number (gothic) over a mono label. With `to` the tile is a button that opens the page behind it; `hot` lights it ember when there is something waiting. */
+const mgNum = (n) => (+n >= 10000 ? (+n).toLocaleString() : String(n)),
+  mgTile = (n, l, o = {}) =>
+    h(
+      o.to ? "button" : "div",
+      { class: "dtile" + (o.hot && +n > 0 ? " hot" : "") + (o.to ? " lnk" : ""), ...(o.to ? { type: "button", onclick: () => (location.hash = o.to) } : {}) },
+      h("b", {}, mgNum(n)),
+      h("span", {}, l),
+    ),
+  mgGrid = (cols, ...tiles) => h("div", { class: "dgrid c" + cols }, ...tiles),
+  mgSec = (t, n) => h("div", { class: "fsh" }, h("span", {}, t), n != null ? h("i", { class: "fcn" }, String(n)) : null),
+  mgLink = (icon, title, sub, hash) =>
+    h(
+      "button",
+      { type: "button", class: "chat setgo", onclick: () => (location.hash = hash) },
+      h("span", { class: "seti", "aria-hidden": "true" }, ic(icon, 20)),
+      h("div", { class: "cx" }, h("b", {}, title), h("span", { class: "hint" }, sub)),
+      h("span", { class: "hint", "aria-hidden": "true" }, "›"),
+    ),
+  mgRows = (list, empty) =>
+    list.length ? h("div", { class: "dlist" }, ...list) : h("div", { class: "xempty" }, empty);
 async function dashPage() {
   const d = await api("mg_dash"),
     k = d.mine,
-    out = [big("Dashboard"), h("div", { class: "card" }, h("h3", {}, "Hi @" + d.name), h("p", { class: "hint" }, "You are signed in as: " + MGROLE[d.role] + "."))];
-  if (d.site)
-    out.push(
+    blurb = { admin: "You can manage people, content and the site itself.", mod: "You can review reports and manage posts and comments.", user: "Here is how things are going on your account." },
+    out = [
+      big("Dashboard"),
       h(
         "div",
-        { class: "card" },
-        h("h3", {}, "Site"),
-        mgTiles([[d.site.users, "accounts"], [d.site.mods, "moderators"], [d.site.new7, "new this week"], [d.site.active1, "active today"], [d.site.posts, "posts"], [d.site.comments, "comments"]]),
-        mgBtn("Manage users", "#/ausers"),
-        mgBtn("Admin settings and stats", "#/settings/admin"),
+        { class: "dhero" },
+        h("div", { class: "dme" }, av(M || {}, 64), h("div", { class: "dwho" }, h("small", {}, "Signed in as"), h("b", {}, M ? dn(M) : "@" + d.name), h("span", { class: "hint" }, "@" + d.name))),
+        h("span", { class: "fl" }, MGROLE[d.role]),
+        M && M.bio ? h("p", { class: "dbio" }, M.bio) : null,
+        h("p", { class: "hint dsub" }, blurb[d.role] || blurb.user),
+        h(
+          "div",
+          { class: "dbtns" },
+          h("button", { type: "button", class: "ghost", onclick: () => (location.hash = "#/u/" + d.name) }, "View profile"),
+          h("button", { type: "button", class: "ghost", onclick: () => M && editProfile(M) }, "Edit profile"),
+        ),
       ),
-    );
-  if (d.queue)
+    ];
+  if (d.queue) {
+    const q = d.queue,
+      todo = q.reports + q.appeals + q.held;
     out.push(
+      mgSec("Needs a look", todo),
+      mgGrid(2, mgTile(q.reports, "Reported things", { to: "#/r", hot: 1 }), mgTile(q.appeals, "Appeals waiting", { to: "#/r", hot: 1 }), mgTile(q.held, "Held back", { to: "#/aposts", hot: 1 }), mgTile(q.suspended, "Suspended", { to: d.site ? "#/ausers" : "#/r" })),
+      mgSec("Waiting for review", (d.flagged || []).length),
+      mgRows(
+        (d.flagged || []).map((f) =>
+          h("a", { class: "dr", href: "#/r" }, h("i", { class: "dk" }, f.kind), h("span", { class: "dt" }, f.txt || "(no text)"), h("small", { class: "hint" }, (f.why ? f.why + " \u00b7 " : "") + ago(f.ts))),
+        ),
+        "Nothing is waiting. All clear.",
+      ),
       h(
         "div",
-        { class: "card" },
-        h("h3", {}, "Moderation queue"),
-        mgTiles([[d.queue.reports, "reported things"], [d.queue.appeals, "appeals waiting"], [d.queue.held, "held back"], [d.queue.suspended, "suspended"]]),
-        mgBtn("Reports and appeals", "#/r"),
-        mgBtn("Manage posts", "#/aposts"),
-        mgBtn("Manage comments", "#/acomments"),
-        h("h4", { style: "margin-top:14px" }, "Your recent actions"),
-        d.actions.length ? d.actions.map((a) => h("p", { class: "hint" }, a.act + (a.tgt ? " " + a.tgt : "") + " \u00b7 " + ago(a.ts))) : h("p", { class: "hint" }, "Nothing yet."),
+        { class: "setmenu dlinks" },
+        mgLink("e_shield", "Reports and appeals", "Review what people flagged", "#/r"),
+        mgLink("image", "Manage posts", "Search, edit or remove posts", "#/aposts"),
+        mgLink("comment", "Manage comments", "Search, edit or remove comments", "#/acomments"),
+      ),
+      mgSec("Your recent actions", d.actions.length),
+      mgRows(
+        d.actions.map((a) => h("div", { class: "dr" }, h("span", { class: "dt" }, a.act + (a.tgt ? " " + a.tgt : "")), h("small", { class: "hint" }, ago(a.ts)))),
+        "No moderation actions yet.",
       ),
     );
+  }
+  if (d.site) {
+    const s = d.site;
+    out.push(
+      mgSec("Site", s.users),
+      mgGrid(3, mgTile(s.users, "Accounts", { to: "#/ausers" }), mgTile(s.mods, "Moderators", { to: "#/ausers" }), mgTile(s.new7, "New this week", { to: "#/ausers" }), mgTile(s.active1, "Active today", { to: "#/ausers" }), mgTile(s.posts, "Posts", { to: "#/aposts" }), mgTile(s.comments, "Comments", { to: "#/acomments" })),
+      mgSec("Newest members", (d.newest || []).length),
+      mgRows(
+        (d.newest || []).map((u) =>
+          h("a", { class: "dr dm", href: "#/u/" + u.name }, av(u, 36), h("span", { class: "dt" }, dn(u), h("small", { class: "hint" }, " @" + u.name)), h("small", { class: "hint" }, "joined " + ago(u.ts))),
+        ),
+        "Nobody has joined yet.",
+      ),
+      h("div", { class: "setmenu dlinks dgap" }, mgLink("users", "Manage users", "Add, edit or remove accounts", "#/ausers"), mgLink("sliders", "Admin settings and stats", "Site options and the full stats card", "#/settings/admin")),
+    );
+  }
   out.push(
-    h(
-      "div",
-      { class: "card" },
-      h("h3", {}, "Your activity"),
-      mgTiles([[k.posts, "posts"], [k.comments, "comments"], [k.likes, "likes received"], [k.friends, "friends"], [k.streak, "day streak"], [k.sigils, "Sigils"]]),
-      mgTiles([[k.bell, "new alerts"], [k.unread, "unread messages"], [k.requests, "friend requests"]]),
-      h("h4", {}, "Your latest posts"),
-      k.recent.length
-        ? k.recent.map((p) => h("p", {}, h("a", { href: "#/p/" + p.id }, p.cap || "(photo)"), " ", h("small", { class: "hint" }, p.likes + " likes \u00b7 " + ago(p.ts))))
-        : h("p", { class: "hint" }, "You have not posted yet."),
+    mgSec("Inbox", k.bell + k.unread + k.requests),
+    mgGrid(3, mgTile(k.bell, "New alerts", { to: "#/n", hot: 1 }), mgTile(k.unread, "Unread messages", { to: "#/m", hot: 1 }), mgTile(k.requests, "Friend requests", { to: "#/f", hot: 1 })),
+    mgSec("Your activity"),
+    mgGrid(3, mgTile(k.posts, "Posts"), mgTile(k.comments, "Comments"), mgTile(k.likes, "Likes received"), mgTile(k.friends, "Friends", { to: "#/f" }), mgTile(k.streak, "Day streak"), mgTile(k.sigils, "Sigils")),
+    mgSec("Your latest posts", k.recent.length),
+    mgRows(
+      k.recent.map((p) =>
+        h("a", { class: "dr", href: "#/p/" + p.id }, h("span", { class: "dt" }, p.cap || "(photo)"), h("small", { class: "hint" }, p.likes + (p.likes === 1 ? " like" : " likes") + " · " + ago(p.ts))),
+      ),
+      "You have not posted yet.",
     ),
   );
-  shell(out);
+  shell(h("div", { class: "dash" }, ...out));
 }
 function mgUserSheet(name, done) {
   sheet(name ? "Edit @" + name : "Add a person", (close) => {

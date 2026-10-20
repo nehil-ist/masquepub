@@ -4117,3 +4117,58 @@ html[data-motion=reduce] .cschip.t6{animation:none!important}
 .rmv-b:disabled{opacity:1;cursor:default;background:transparent}
 .rmv-b.rp{font-weight:600;opacity:.7}
 .rmvote[hidden]{display:none}
+
+/* Dashboard (#/dash): same zine look as Friends and Settings. Gothic numbers, mono labels, outlined tiles with hard shadows, dashed section dividers, real gaps. */
+.dash{display:grid;gap:0}
+.dash .big{margin-bottom:16px}
+.dhero{display:grid;grid-template-columns:1fr auto;align-items:center;gap:6px 12px;margin:0 0 6px;padding:16px 18px;border:2.5px solid var(--ol);border-radius:6px;background:color-mix(in srgb,var(--ink) 5%,var(--card));box-shadow:4px 4px 0 var(--sh)}
+.dwho{display:grid;gap:6px;min-width:0}
+.dwho small{font:700 .62rem/1 var(--mono,ui-monospace,monospace);letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.dwho b{font:400 2.1rem/1 "Pirata One",Georgia,serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dhero .fl{align-self:start;background:var(--ol);color:var(--card);margin-top:2px}
+.dhero .hint{grid-column:1/-1;margin-top:6px;padding-top:10px;border-top:2px dashed var(--line);line-height:1.5}
+.dash .fsh{margin:26px 0 12px}
+.dgrid{display:grid;gap:12px;margin:0 0 14px}
+.dgrid.c3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.dgrid.c2{grid-template-columns:repeat(2,minmax(0,1fr))}
+html .dtile{position:relative;box-sizing:border-box;width:100%;justify-self:stretch;text-decoration:none;display:grid;align-content:space-between;justify-items:start;gap:10px;min-height:88px;min-width:0;padding:12px 12px 11px;border:2.5px solid var(--ol);border-radius:6px;background:var(--card);color:var(--ink);box-shadow:3px 3px 0 var(--sh);text-align:left;font:inherit;transition:transform .12s,box-shadow .12s,background .15s}
+.dtile b{font:400 2.1rem/.9 "Pirata One",Georgia,serif;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.dtile span{text-decoration:none;font:700 .62rem/1.25 var(--mono,ui-monospace,monospace);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);overflow-wrap:anywhere}
+.dtile.lnk:after{content:"\203A";position:absolute;top:7px;right:10px;font:700 1.05rem/1 var(--mono,ui-monospace,monospace);color:var(--mute);opacity:.7}
+@media(hover:hover){.dtile.lnk:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--sh)}}
+.dtile.lnk:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--sh)}
+.dtile.lnk:focus-visible{outline:3px solid var(--sigil);outline-offset:2px}
+html .dtile.hot{background:color-mix(in srgb,var(--ember) 10%,var(--card));box-shadow:inset 6px 0 0 var(--ember),3px 3px 0 var(--sh);padding-left:18px}
+.dtile.hot b{color:var(--ember)}
+.dtile.hot span{color:var(--ink)}
+.dtile.hot.lnk:after{color:var(--ember);opacity:1}
+.dlinks{margin:0 0 4px}
+.dlinks .chat.setgo:last-child{margin-bottom:0}
+.dlist{display:grid;margin:0 0 4px;border:2.5px solid var(--ol);border-radius:6px;background:var(--card);box-shadow:4px 4px 0 var(--sh);overflow:hidden}
+.dr{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:12px 14px;color:var(--ink);text-decoration:none}
+.dr+.dr{border-top:2px dashed var(--line)}
+.dt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:700 .9rem/1.3 var(--mono,ui-monospace,monospace)}
+.dr .hint{flex:none;font-size:.72rem;white-space:nowrap}
+a.dr:hover{background:var(--soft)}
+a.dr:active{background:var(--tint)}
+.dash .xempty{margin:0 0 4px}
+@media(min-width:700px){.dgrid.c2{grid-template-columns:repeat(4,minmax(0,1fr))}.dtile{min-height:96px}}
+@media(max-width:360px){.dtile b{font-size:1.8rem}.dgrid{gap:10px}.dtile span{letter-spacing:.06em}}
+@media(prefers-reduced-motion:reduce){.dtile{transition:none}}
+
+/* Dashboard v2: profile header, review list, newest members */
+.dme{display:flex;align-items:center;gap:14px;min-width:0}
+.dme .av{flex:none;border:2.5px solid var(--ol);border-radius:50%;box-shadow:2px 2px 0 var(--sh);overflow:hidden}
+.dwho .hint{font-size:.78rem}
+.dhero .dbio{grid-column:1/-1;margin:6px 0 0;font-size:.9rem;line-height:1.5;overflow-wrap:anywhere}
+.dhero .dsub{margin-top:8px}
+.dhero .dbio+.dsub{margin-top:8px}
+.dbtns{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.dbtns .ghost{width:100%;justify-content:center}
+.dk{flex:none;padding:2px 6px;border:2px solid var(--ol);border-radius:4px;background:var(--card);font:700 .6rem/1.2 var(--mono,ui-monospace,monospace);font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:var(--ink)}
+.dr .dk{margin-right:-2px}
+.dr.dm{gap:12px}
+.dr.dm .av{flex:none;border:2px solid var(--ol);border-radius:50%;overflow:hidden}
+.dr.dm .dt{display:grid;gap:2px}
+.dr.dm .dt .hint{font-weight:400}
+.dgap{margin-top:14px}
