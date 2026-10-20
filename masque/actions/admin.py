@@ -1,4 +1,6 @@
-"""Moderation and admin actions: report, reports, appeal, appealst, appealres, suspend, purge, bwlist, bwadd, bwdel, rfset, astats, backup, ipdiag, suggest."""
+"""Moderation and admin actions: report, reports, appeal, appealst, appealres, suspend, purge, bwlist, bwadd, bwdel, rfset, astats, backup, ipdiag, suggest, staff, setrole.
+
+Moderators (role 1) may use the report queue, appeals and short suspensions; everything else here is admins only."""
 import os
 import secrets
 import time
@@ -25,6 +27,14 @@ def _admin(ctx: Context):
     """need() plus 'Not allowed.' for everyone but admins."""
     m = ctx.users.need()
     if not m["admin"]:
+        ctx.deny("Not allowed.", 403)
+    return m
+
+
+def _mod(ctx: Context):
+    """need() plus 'Not allowed.' for everyone but moderators and admins."""
+    m = ctx.users.need()
+    if not m["mod"]:
         ctx.deny("Not allowed.", 403)
     return m
 
@@ -110,7 +120,7 @@ class Reports(Action):
 
     def handle(self, ctx: Context) -> Reply:
         db = ctx.db
-        m = _admin(ctx)
+        m = _mod(ctx)
         rows = db.all("SELECT r.id,r.kind,r.tid,r.why,r.ts,(r.uid=0) auto,COALESCE(u.name,'word filter') rname FROM reports r "
                       "LEFT JOIN users u ON u.id=r.uid ORDER BY r.id DESC LIMIT 100")
         hidn, hida = AutoHide.threshold(), AutoHide.min_age()
@@ -128,14 +138,15 @@ class Reports(Action):
                 if "sens" in i:
                     i["sens"] = int(i["sens"])
                     i["himg"] = int(i["himg"])
-                i["adm"] = 1 if (ctx.users.is_admin(i) or u0 == int(m["id"])) else 0
+                i["adm"] = 1 if (u0 == int(m["id"]) or ctx.users.role_of({"id": u0}) == "admin"
+                                 or (m["role"] != "admin" and ctx.users.is_mod({"id": u0}))) else 0
                 del i["uid"]
             r["target"] = i or None
         log = db.all("SELECT a.act,a.tgt,a.ts,u.name aname FROM alog a LEFT JOIN users u ON u.id=a.aid ORDER BY a.id DESC LIMIT 30")
         appeals = db.all("SELECT a.id,a.txt,a.ts,u.name,u.sus FROM appeals a JOIN users u ON u.id=a.uid WHERE a.st=0 AND u.sus>? ORDER BY a.id ASC LIMIT 50", (ctx.now,))
         for x in appeals:
             x["sus"] = int(x["sus"])
-        return Reply({"reports": rows, "log": log, "appeals": appeals})
+        return Reply({"reports": rows, "log": log, "appeals": appeals, "role": m["role"]})
 
 
 # ---------------------------------------------------------------- appeals
@@ -181,7 +192,7 @@ class AppealResolve(Action):
 
     def handle(self, ctx: Context) -> Reply:
         db = ctx.db
-        m = _admin(ctx)
+        m = _mod(ctx)
         a = db.one("SELECT a.id,a.uid,u.name FROM appeals a JOIN users u ON u.id=a.uid WHERE a.id=? AND a.st=0", (ctx.int_form("id"),))
         if not a:
             return Reply.error("That appeal was already handled.", 404)
@@ -197,23 +208,30 @@ class AppealResolve(Action):
 # ---------------------------------------------------------------- admin tools
 @registry.register
 class Suspend(Action):
-    """?a=suspend: days>0 suspends (max 365), days<0 bans, 0 lifts."""
+    """?a=suspend: days>0 suspends (max 365; a moderator max 30), days<0 bans (admins only), 0 lifts. Staff cannot be suspended by a moderator."""
     name = "suspend"
+    MOD_MAX_DAYS = 30
 
     def handle(self, ctx: Context) -> Reply:
         db = ctx.db
-        m = _admin(ctx)
+        m = _mod(ctx)
         t = db.one("SELECT id,name FROM users WHERE name=?", (php_trim(ctx.form("name")),))
         if not t:
             return Reply.error("No such user.", 404)
         if int(t["id"]) == int(m["id"]) or ctx.users.is_admin(t):
             return Reply.error("Admins cannot be suspended.", 400)
+        is_admin = m["role"] == "admin"
+        if not is_admin and ctx.users.is_mod(t):
+            return Reply.error("Moderators cannot be suspended by a moderator. Ask an admin.", 403)
         d = ctx.int_form("days")
-        until = 2147483647 if d < 0 else (ctx.now + min(d, 365) * 86400 if d > 0 else 0)
+        if d < 0 and not is_admin:
+            return Reply.error("Only admins can ban. You can suspend for up to %d days." % self.MOD_MAX_DAYS, 403)
+        cap = 365 if is_admin else self.MOD_MAX_DAYS
+        until = 2147483647 if d < 0 else (ctx.now + min(d, cap) * 86400 if d > 0 else 0)
         db.execute("UPDATE users SET sus=? WHERE id=?", (until, t["id"]))
         if until == 0:
             db.execute("UPDATE appeals SET st=1,rts=?,rby=? WHERE uid=? AND st=0", (ctx.now, m["id"], t["id"]))
-        ctx.adminlog.add(m, "banned" if d < 0 else ("suspended %d days" % min(d, 365) if d > 0 else "lifted suspension on"), t["name"])
+        ctx.adminlog.add(m, "banned" if d < 0 else ("suspended %d days" % min(d, cap) if d > 0 else "lifted suspension on"), t["name"])
         return Reply({"ok": 1})
 
 
@@ -447,11 +465,11 @@ class Suggest(Action):
 
 
 class ReportAction(Action):
-    """Base for the admin buttons on one report: admin only, finds the report (kind and target) from the form id."""
+    """Base for the staff buttons on one report: moderators and admins, finds the report (kind and target) from the form id."""
 
     def report(self, ctx: Context):
-        """(admin row, the report row or None)."""
-        m = _admin(ctx)
+        """(staff row, the report row or None). Moderators and admins."""
+        m = _mod(ctx)
         return m, ctx.db.one("SELECT kind,tid FROM reports WHERE id=?", (ctx.int_form("id"),))
 
 
@@ -520,3 +538,41 @@ class ReportBlur(ReportAction):
         db.execute("UPDATE posts SET sens=? WHERE id=?", (ns, r["tid"]))
         ctx.adminlog.add(m, ("blurred" if ns == 2 else "unblurred") + " photo of post by", ctx.adminlog.target_name("post", r["tid"]))
         return Reply({"ok": 1, "sens": ns})
+
+
+# ---------------------------------------------------------------- staff roles (admins only)
+@registry.register
+class StaffList(Action):
+    """?a=staff: the admins (from the server settings) and the moderators."""
+    name = "staff"
+
+    def handle(self, ctx: Context) -> Reply:
+        _admin(ctx)
+        mods = ctx.db.all("SELECT id,name,nick,avatar,la FROM users WHERE role=1 ORDER BY name COLLATE NOCASE")
+        admins = [{"name": r["name"], "nick": r["nick"], "avatar": r["avatar"], "la": int(r["la"])}
+                  for r in ctx.db.all("SELECT name,nick,avatar,la FROM users ORDER BY name COLLATE NOCASE") if ctx.users.is_admin(r)]
+        return Reply({"admins": admins, "mods": [{"name": r["name"], "nick": r["nick"], "avatar": r["avatar"], "la": int(r["la"])} for r in mods]})
+
+
+@registry.register
+class SetRole(Action):
+    """?a=setrole: an admin makes someone a moderator (role=mod) or takes it away again (role=user)."""
+    name = "setrole"
+
+    def handle(self, ctx: Context) -> Reply:
+        db = ctx.db
+        m = _admin(ctx)
+        ctx.limits.throttle("role:%d" % m["id"], 30, 3600)
+        t = db.one("SELECT id,name FROM users WHERE name=?", (php_trim(ctx.form("name")),))
+        if not t:
+            return Reply.error("No such user.", 404)
+        if ctx.users.is_admin(t):
+            return Reply.error("That account is an admin already (set in the server settings).", 400)
+        role = ctx.form("role")
+        if role not in ("mod", "user"):
+            return Reply.error("Role must be mod or user.", 400)
+        if role == "mod" and int(db.value("SELECT sus FROM users WHERE id=?", (t["id"],), 0) or 0) > ctx.now:
+            return Reply.error("Lift the suspension first.", 400)
+        db.execute("UPDATE users SET role=? WHERE id=?", (1 if role == "mod" else 0, t["id"]))
+        ctx.adminlog.add(m, "made moderator" if role == "mod" else "removed moderator", t["name"])
+        return Reply({"ok": 1, "role": role})

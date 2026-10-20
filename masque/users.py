@@ -169,8 +169,28 @@ class Users:
         r["xp"] = int(r["xp"])
         r["xpall"] = 1 if self.db.value("SELECT v FROM site WHERE k='xpall'") == "1" else 0
         r["admin"] = self.is_admin(r)
+        r["role"] = self.role_of(r)
+        r["mod"] = r["role"] in ("mod", "admin")
         r["mask"] = self.db.one("SELECT name,bio,avatar FROM masks WHERE uid=?", (r["id"],))
         return r
+
+    def role_of(self, user) -> str:
+        """'admin' (ADMIN_USER / ADMIN_USERS), 'mod' (role 1 in the users table) or 'user'. Takes a dict with a 'name' and/or an 'id'."""
+        name = user.get("name")
+        if name is None and user.get("id") is not None:
+            name = self.db.value("SELECT name FROM users WHERE id=?", (int(user["id"]),))
+        if name is not None and self.admins.is_admin(name):
+            return "admin"
+        role = user.get("role")
+        if isinstance(role, str):  # a me() dict already carries the answer
+            return role
+        if role is None:
+            role = self.db.value("SELECT role FROM users WHERE name=?", (str(name or ""),), 0)
+        return "mod" if int(role or 0) == 1 else "user"
+
+    def is_mod(self, user) -> bool:
+        """A moderator or an admin (staff)."""
+        return self.role_of(user) in ("mod", "admin")
 
     def admnow(self) -> bool:
         """PHP admnow(): is the account in this session an admin (no full me() lookup, no side effects)."""
@@ -192,6 +212,13 @@ class Users:
                 t = time.gmtime(m["sus"])
                 head = "Your account is suspended until %s %d, %d (UTC)." % (_MONTHS[t.tm_mon - 1], t.tm_mday, t.tm_year)
             raise Abort(Reply.error(head + " You can still read, but not post or send anything.", 403))
+        return m
+
+    def need_mod(self):
+        """need() plus 'Not allowed.' for everyone but moderators and admins."""
+        m = self.need()
+        if not m["mod"]:
+            raise Abort(Reply.error("Not allowed.", 403))
         return m
 
     def need_admin(self):
