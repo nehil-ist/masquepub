@@ -334,3 +334,19 @@ After the v151 cleanup `assets/style.css` uses a small set of sizes. When you ad
 - Small text sizes (rem): .6, .68, .72, .78, .85, .9, .95, 1, 1.05, 1.1. Bigger sizes are for headings and display text.
 - Corner roundness (px): 2, 4, 6, 8, 10, 12, 14, 16, 20, 24, plus 999px for pills and 50% for circles.
 - Main animation curve: `cubic-bezier(.16,1,.3,1)` (the `--ease` variable).
+
+
+## Roles and management (added after the Python migration)
+Three roles: **user**, **moderator** (users table `role=1`, set by an admin) and **admin** (`ADMIN_USER` / `ADMIN_USERS` on the server).
+
+| Page (hash)        | Who            | What it does |
+| ------------------ | -------------- | ------------ |
+| `#/dash`           | everyone       | Your own numbers; moderators also see the queue and their recent actions; admins also see site totals |
+| `#/r`              | staff          | Reports and appeals (moderators: suspend up to 30 days, no bans) |
+| `#/aposts`         | staff          | List, search, edit, delete any post |
+| `#/acomments`      | staff          | List, search, edit, delete any comment |
+| `#/ausers`         | admins         | List with roles, search, filter, add, edit (nick, bio, privacy, role, password), delete accounts |
+
+Actions (all in `masque/actions/manage.py`, prefixed `mg_`): `mg_dash`, `mg_ulist`, `mg_uget`, `mg_uadd`, `mg_uedit`, `mg_udel`, `mg_mposts`, `mg_mpedit`, `mg_mpdel`, `mg_mcomments`, `mg_mcedit`, `mg_mcdel`. Role actions in `masque/actions/admin.py`: `staff`, `setrole`.
+Masques stay hidden: content written as a Masque is listed as "Masque", never counted toward a person, and the admin log names no owner for it.
+`assets/app.min.js` is not shipped; run `./build.sh` to make it (the site serves `assets/app.js` until then).

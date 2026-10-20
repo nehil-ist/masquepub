@@ -2341,6 +2341,10 @@ function titleFor(h1) {
   if (/^#\/k\//.test(t)) return "Masque - Masque";
   if (t === "#/r") return "Masque - Reports";
   if (t === "#/w") return "Masque - Words";
+  if (t === "#/dash") return "Masque - Dashboard";
+  if (t === "#/ausers") return "Masque - People";
+  if (t === "#/aposts") return "Masque - Posts";
+  if (t === "#/acomments") return "Masque - Comments";
   return "Masque - Home";
 }
 /* once a page has its data, swap the generic title for a specific one (h0 = the hash the page was opened on, so a slow load never retitles a page you already left) */
@@ -7938,6 +7942,49 @@ const XK = {
   GL = () => ({ tbg: PBG, tbp: PBP, tcd: PCD, tfn: PFN, tas: PAS, taf: PAF, tcf: PBF }),
   GIVEN = { tbg: "Background", tbp: "Pattern", tcd: "Card", tfn: "Font", tas: "Avatar shape", taf: "Avatar frame", tcf: "Banner frame" };
 /* admin: give (or take back, with a minus) Sigils. The name can be yours. */
+/* admin: see the admins and moderators, make someone a moderator, or take it away again */
+function staffSheet() {
+  sheet("Moderators", (close) => {
+    const box = h("div", { class: "form" }),
+      msg = h("p", { class: "hint", role: "status" }),
+      who = h("input", { type: "text", maxlength: 20, placeholder: "Username", "aria-label": "Username", autocapitalize: "off", autocomplete: "off" }),
+      set = async (name, role) => {
+        msg.className = "hint";
+        msg.textContent = "";
+        try {
+          await api("setrole", fd({ name, role }));
+          who.value = "";
+          await load();
+        } catch (x) {
+          msg.className = "err";
+          msg.textContent = (x && x.e) || "Could not do that.";
+        }
+      },
+      person = (u, canRemove) =>
+        h("div", { class: "row", style: "justify-content:space-between;align-items:center" }, h("span", {}, "@" + u.name), canRemove ? h("button", { type: "button", class: "ghost", onclick: () => set(u.name, "user") }, "Remove") : h("span", { class: "hint" }, "admin")),
+      load = async () => {
+        let r;
+        try {
+          r = await api("staff");
+        } catch (x) {
+          box.replaceChildren(h("p", { class: "err" }, (x && x.e) || "Could not load."));
+          return;
+        }
+        box.replaceChildren(
+          h("p", { class: "hint" }, "Moderators can work the reports queue, answer appeals and suspend accounts for up to 30 days. They cannot ban, delete accounts or change site settings."),
+          h("b", {}, "Admins"),
+          ...r.admins.map((u) => person(u, false)),
+          h("b", {}, "Moderators"),
+          ...(r.mods.length ? r.mods.map((u) => person(u, true)) : [h("p", { class: "hint" }, "No moderators yet.")]),
+          who,
+          h("button", { type: "button", class: "btn full", onclick: () => who.value.trim() && set(who.value.trim(), "mod") }, "Make moderator"),
+          msg,
+        );
+      };
+    load();
+    return box;
+  });
+}
 function sigilSheet(name) {
   sheet("Give Sigils", (close) => {
     const who = h("input", { type: "text", value: name || M.name, maxlength: 20, "aria-label": "Username", autocapitalize: "off", autocomplete: "off" }),
@@ -10778,12 +10825,17 @@ async function settings() {
   ].filter(Boolean);
   S.security = [h("div", { class: "card" }, h("h3", {}, "Password"), pwForm()), mailCard(), rcCard(), devicesCard()];
   S.admin = [
-    M.admin
+    M.mod
       ? h(
           "div",
           { class: "card" },
           h("h3", {}, "Admin"),
           h("button", { class: "ghost", onclick: () => (location.hash = "#/r") }, "Reports"),
+          mgBtn("Posts", "#/aposts"),
+          mgBtn("Comments", "#/acomments"),
+          M.admin ? mgBtn("People (users)", "#/ausers") : null,
+          M.admin ? h("button", { class: "ghost", style: "display:block;width:100%;margin-top:8px", onclick: staffSheet }, "Moderators") : null,
+          M.admin ? [
           h(
             "button",
             {
@@ -10818,9 +10870,11 @@ async function settings() {
             { class: "hint", style: "margin-top:8px" },
             "The backup is the whole database (accounts, posts, messages) as one file. Photos live in the up/ folder on your server and are not included. Keep the file private.",
           ),
+          ] : h("p", { class: "hint", style: "margin-top:8px" }, "You are a moderator: you can work the reports queue, answer appeals and suspend accounts for up to 30 days."),
         )
       : null,
   ];
+  S.dashboard = [h("div", { class: "card" }, h("h3", {}, "Dashboard"), h("p", { class: "hint" }, "Your activity, and what needs attention for your role."), h("button", { class: "btn", onclick: () => (location.hash = "#/dash") }, "Open dashboard"))];
   S.account = [
     h(
       "div",
@@ -10860,17 +10914,18 @@ async function settings() {
   const M0 = [
     ["privacy", "lock", "Privacy", "Private account, who can message you, anonymous questions"],
     ["notifications", "bell", "Notifications", "What reaches your bell, pop-ups, quiet hours, muted words"],
+    ["dashboard", "star", "Dashboard", "Your numbers" + (M.mod ? ", the moderation queue" : "") + (M.admin ? " and site overview" : "")],
     ["masque", "mask", "Second Masque", "A second name and picture for posting"],
     ["appearance", "sliders", "Appearance", "Theme, text size, reduce motion"],
     ["unlockables", "star", "Unlockables", "Your progress and what to unlock next"],
     ["marketplace", "gift", "Marketplace", "Spend your Sigils on themes"],
     ["security", "shield", "Security", "Password, recovery code, signed-in devices"],
   ];
-  if (M.admin) M0.push(["admin", "settings", "Admin", "Reports, blocked words, maintenance, backup"]);
+  if (M.mod) M0.push(["admin", "settings", M.admin ? "Admin" : "Moderator", M.admin ? "Reports, moderators, blocked words, maintenance, backup" : "Reports and appeals"]);
   M0.push(["account", "users", "Account", "Sign out or delete your account"]);
   const cur = M0.find((r) => r[0] === sec);
   /* the menu is grouped under small labels instead of one long list (Marketplace has its own card above) */
-  const SG = [["Your space", ["privacy", "notifications", "masque"]], ["Look and feel", ["appearance", "unlockables"]], ["Account", ["security", "admin", "account"]]],
+  const SG = [["Your space", ["dashboard", "privacy", "notifications", "masque"]], ["Look and feel", ["appearance", "unlockables"]], ["Account", ["security", "admin", "account"]]],
     setItems = SG.flatMap(([lab, keys]) => {
       const rs = M0.filter((r) => keys.includes(r[0]));
       return rs.length ? [{ lab }, ...rs] : [];
@@ -16759,6 +16814,253 @@ function appealSheet() {
     return box;
   });
 }
+/* ===== Management: a dashboard for every role, and users / posts / comments management for staff ===== */
+const MGROLE = { admin: "Admin", mod: "Moderator", user: "User" },
+  mgWhen = (t) => (t ? new Date(t * 1000).toLocaleDateString() : "never"),
+  mgTiles = (list) => h("div", { class: "stiles" }, ...list.map(([n, l]) => h("div", { class: "stile" }, h("b", {}, String(n)), h("small", {}, l)))),
+  mgBtn = (label, hash) => h("button", { type: "button", class: "ghost", style: "display:block;width:100%;margin-top:8px", onclick: () => (location.hash = hash) }, label),
+  mgBack = () => h("button", { type: "button", class: "ghost", onclick: () => (location.hash = M && M.mod ? "#/dash" : "#/") }, "\u2190 Dashboard"),
+  mgDenied = () => shell(emp("shield", "Staff only", "This page is for site moderators and admins."));
+function mgPager(r, go) {
+  const from = r.total ? r.page * r.per + 1 : 0,
+    to = Math.min(r.total, (r.page + 1) * r.per);
+  return h(
+    "div",
+    { class: "row", style: "justify-content:space-between;align-items:center;margin-top:8px" },
+    h("button", { type: "button", class: "ghost", disabled: r.page < 1, onclick: () => go(r.page - 1) }, "Previous"),
+    h("span", { class: "hint" }, from + "\u2013" + to + " of " + r.total),
+    h("button", { type: "button", class: "ghost", disabled: to >= r.total, onclick: () => go(r.page + 1) }, "Next"),
+  );
+}
+async function dashPage() {
+  const d = await api("mg_dash"),
+    k = d.mine,
+    out = [big("Dashboard"), h("div", { class: "card" }, h("h3", {}, "Hi @" + d.name), h("p", { class: "hint" }, "You are signed in as: " + MGROLE[d.role] + "."))];
+  if (d.site)
+    out.push(
+      h(
+        "div",
+        { class: "card" },
+        h("h3", {}, "Site"),
+        mgTiles([[d.site.users, "accounts"], [d.site.mods, "moderators"], [d.site.new7, "new this week"], [d.site.active1, "active today"], [d.site.posts, "posts"], [d.site.comments, "comments"]]),
+        mgBtn("Manage users", "#/ausers"),
+        mgBtn("Admin settings and stats", "#/settings/admin"),
+      ),
+    );
+  if (d.queue)
+    out.push(
+      h(
+        "div",
+        { class: "card" },
+        h("h3", {}, "Moderation queue"),
+        mgTiles([[d.queue.reports, "reported things"], [d.queue.appeals, "appeals waiting"], [d.queue.held, "held back"], [d.queue.suspended, "suspended"]]),
+        mgBtn("Reports and appeals", "#/r"),
+        mgBtn("Manage posts", "#/aposts"),
+        mgBtn("Manage comments", "#/acomments"),
+        h("h4", { style: "margin-top:14px" }, "Your recent actions"),
+        d.actions.length ? d.actions.map((a) => h("p", { class: "hint" }, a.act + (a.tgt ? " " + a.tgt : "") + " \u00b7 " + ago(a.ts))) : h("p", { class: "hint" }, "Nothing yet."),
+      ),
+    );
+  out.push(
+    h(
+      "div",
+      { class: "card" },
+      h("h3", {}, "Your activity"),
+      mgTiles([[k.posts, "posts"], [k.comments, "comments"], [k.likes, "likes received"], [k.friends, "friends"], [k.streak, "day streak"], [k.sigils, "Sigils"]]),
+      mgTiles([[k.bell, "new alerts"], [k.unread, "unread messages"], [k.requests, "friend requests"]]),
+      h("h4", {}, "Your latest posts"),
+      k.recent.length
+        ? k.recent.map((p) => h("p", {}, h("a", { href: "#/p/" + p.id }, p.cap || "(photo)"), " ", h("small", { class: "hint" }, p.likes + " likes \u00b7 " + ago(p.ts))))
+        : h("p", { class: "hint" }, "You have not posted yet."),
+    ),
+  );
+  shell(out);
+}
+function mgUserSheet(name, done) {
+  sheet(name ? "Edit @" + name : "Add a person", (close) => {
+    const box = h("div", { class: "form" }, h("p", { class: "hint" }, "Loading\u2026")),
+      err = h("p", { class: "err", role: "alert" }),
+      inp = (ph, v, ml, type) => h("input", { type: type || "text", placeholder: ph, "aria-label": ph, value: v || "", maxlength: ml, autocomplete: "off", autocapitalize: "off" }),
+      roleSel = (v) => h("select", { "aria-label": "Role" }, h("option", { value: "user" }, "User"), h("option", { value: "mod" }, "Moderator")),
+      build = (u) => {
+        const nm = name ? null : inp("Username", "", 20),
+          nick = name ? inp("Nickname", u.nick, 30) : null,
+          bio = name ? h("textarea", { "aria-label": "Bio", maxlength: 160, placeholder: "Bio" }, u.bio || "") : null,
+          priv = name ? h("input", { type: "checkbox", style: "width:auto", checked: +u.priv === 1 }) : null,
+          rs = roleSel(),
+          pw = inp(name ? "New password (leave empty to keep)" : "Password (8+ characters)", "", 72, "password"),
+          go = h("button", { type: "submit", class: "btn full" }, name ? "Save changes" : "Create account");
+        rs.value = name ? u.role : "user";
+        box.replaceChildren(
+          h(
+            "form",
+            {
+              class: "form",
+              onsubmit: async (e) => {
+                e.preventDefault();
+                err.textContent = "";
+                go.disabled = true;
+                try {
+                  if (name) await api("mg_uedit", fd({ name, nick: nick.value, bio: bio.value, priv: priv.checked ? 1 : 0, role: rs.value, pw: pw.value }));
+                  else await api("mg_uadd", fd({ name: nm.value.trim(), pw: pw.value, role: rs.value }));
+                  close();
+                  done();
+                } catch (x) {
+                  err.textContent = (x && x.e) || "Could not save.";
+                }
+                go.disabled = false;
+              },
+            },
+            nm,
+            nick,
+            bio,
+            priv ? h("label", { class: "row", style: "gap:8px;align-items:center" }, priv, "Private account") : null,
+            h("label", { class: "hint" }, "Role"),
+            rs,
+            pw,
+            name ? h("p", { class: "hint" }, "Setting a new password signs that person out everywhere. Masques are never shown here.") : h("p", { class: "hint" }, "They can change the password after signing in."),
+            err,
+            go,
+          ),
+        );
+      };
+    if (!name) build({});
+    else
+      api("mg_uget", fd({ name })).then(build, (x) => box.replaceChildren(h("p", { class: "err" }, (x && x.e) || "Could not load.")));
+    return box;
+  });
+}
+async function usersPage() {
+  if (!(M && M.admin)) return mgDenied();
+  const st = { q: "", role: "", page: 0 },
+    list = h("div", {}),
+    q = h("input", { type: "search", placeholder: "Search name or nickname", "aria-label": "Search people", maxlength: 20 }),
+    rs = h("select", { "aria-label": "Show" }, ...[["", "Everyone"], ["user", "Users"], ["mod", "Moderators"], ["admin", "Admins"], ["suspended", "Suspended"]].map(([v, l]) => h("option", { value: v }, l)));
+  const load = async () => {
+    let r;
+    try {
+      r = await api("mg_ulist", fd(st));
+    } catch (x) {
+      rc(list, h("p", { class: "err" }, (x && x.e) || "Could not load."));
+      return;
+    }
+    const row = (u) =>
+      h(
+        "div",
+        { class: "card rep" },
+        h("b", {}, "@" + u.name + (u.nick ? " \u00b7 " + u.nick : "")),
+        h("p", { class: "hint" }, MGROLE[u.role] + " \u00b7 joined " + mgWhen(u.ts) + " \u00b7 last seen " + mgWhen(u.la) + " \u00b7 " + u.posts + " posts \u00b7 " + u.comments + " comments" + (u.sus > Date.now() / 1000 ? (u.sus >= 2e9 ? " \u00b7 banned" : " \u00b7 suspended") : "")),
+        u.role === "admin"
+          ? h("p", { class: "hint" }, "Admins are set in the server settings.")
+          : h(
+              "div",
+              { class: "row" },
+              h("button", { type: "button", class: "ghost", onclick: () => mgUserSheet(u.name, load) }, "Edit"),
+              h(
+                "button",
+                {
+                  type: "button",
+                  class: "ghost",
+                  onclick: async () => {
+                    if (!(await cbox("Delete @" + u.name + " and everything they made (posts, comments, messages, photos)? This cannot be undone."))) return;
+                    try {
+                      await api("mg_udel", fd({ name: u.name }));
+                      load();
+                    } catch (x) {
+                      alert((x && x.e) || "Could not delete.");
+                    }
+                  },
+                },
+                "Delete",
+              ),
+            ),
+      );
+    rc(list, r.users.length ? r.users.map(row) : h("p", { class: "hint" }, "Nobody matches."), mgPager(r, (p) => { st.page = p; load(); }));
+  };
+  q.addEventListener("input", () => { st.q = q.value; st.page = 0; clearTimeout(q._t); q._t = setTimeout(load, 250); });
+  rs.addEventListener("change", () => { st.role = rs.value; st.page = 0; load(); });
+  shell([big("People"), mgBack(), h("div", { class: "card" }, h("button", { type: "button", class: "btn full", onclick: () => mgUserSheet("", load) }, "Add a person"), q, rs), list]);
+  load();
+}
+async function mgContent(kind) {
+  if (!(M && M.mod)) return mgDenied();
+  const post = kind === "post",
+    cfg = post ? { list: "mg_mposts", edit: "mg_mpedit", del: "mg_mpdel", field: "cap", key: "posts", title: "Posts" } : { list: "mg_mcomments", edit: "mg_mcedit", del: "mg_mcdel", field: "txt", key: "comments", title: "Comments" },
+    st = { q: "", page: 0 },
+    list = h("div", {}),
+    q = h("input", { type: "search", placeholder: "Search the text", "aria-label": "Search", maxlength: 40 });
+  const edit = (x) =>
+      sheet("Edit " + kind, (close) => {
+        const t = h("textarea", { "aria-label": "Text", maxlength: post ? 1000 : 300, style: "min-height:120px" }, x[cfg.field] || ""),
+          err = h("p", { class: "err", role: "alert" });
+        return h(
+          "form",
+          {
+            class: "form",
+            onsubmit: async (e) => {
+              e.preventDefault();
+              try {
+                await api(cfg.edit, fd({ id: x.id, [cfg.field]: t.value }));
+                close();
+                load();
+              } catch (y) {
+                err.textContent = (y && y.e) || "Could not save.";
+              }
+            },
+          },
+          h("p", { class: "hint" }, "The author is not told. Only the first 200 characters are loaded here, so saving replaces the whole text."),
+          t,
+          err,
+          h("button", { type: "submit", class: "btn full" }, "Save"),
+        );
+      }),
+    load = async () => {
+      let r;
+      try {
+        r = await api(cfg.list, fd(st));
+      } catch (x) {
+        rc(list, h("p", { class: "err" }, (x && x.e) || "Could not load."));
+        return;
+      }
+      const row = (x) =>
+        h(
+          "div",
+          { class: "card rep" },
+          h("b", {}, (x.masked ? "Masque" : "@" + x.author) + " \u00b7 " + ago(x.ts) + (+x.hold ? " \u00b7 held back" : "") + (+x.vis ? " \u00b7 not public" : "")),
+          h("p", {}, x[cfg.field] || (x.himg ? "(photo only)" : "(no text)")),
+          post ? h("p", { class: "hint" }, x.likes + " likes \u00b7 " + x.comments + " comments") : null,
+          h(
+            "div",
+            { class: "row" },
+            h("button", { type: "button", class: "ghost", onclick: () => (location.hash = "#/p/" + (post ? x.id : x.pid)) }, "View"),
+            h("button", { type: "button", class: "ghost", onclick: () => edit(x) }, "Edit"),
+            h(
+              "button",
+              {
+                type: "button",
+                class: "ghost",
+                onclick: async () => {
+                  if (!(await cbox("Delete this " + kind + (post ? " and its comments" : "") + "?"))) return;
+                  try {
+                    await api(cfg.del, fd({ id: x.id }));
+                    load();
+                  } catch (y) {
+                    alert((y && y.e) || "Could not delete.");
+                  }
+                },
+              },
+              "Delete",
+            ),
+          ),
+        );
+      rc(list, r[cfg.key].length ? r[cfg.key].map(row) : h("p", { class: "hint" }, "Nothing found."), mgPager(r, (p) => { st.page = p; load(); }));
+    };
+  q.addEventListener("input", () => { st.q = q.value; st.page = 0; clearTimeout(q._t); q._t = setTimeout(load, 250); });
+  shell([big(cfg.title), mgBack(), h("div", { class: "card" }, q, h("p", { class: "hint" }, "Masque posts are listed as \u201cMasque\u201d: nobody can see whose they are.")), list]);
+  load();
+}
+const postsPage = () => mgContent("post"),
+  commentsPage = () => mgContent("comment");
 async function reports() {
   let r, lg, ap;
   try {
@@ -16767,7 +17069,7 @@ async function reports() {
     lg = x.log || [];
     ap = x.appeals || [];
   } catch (e) {
-    shell(emp("shield", "Admins only", "This page is for site admins."));
+    shell(emp("shield", "Staff only", "This page is for site moderators and admins."));
     return;
   }
   const act = (a, id, ask) => async () => {
@@ -16929,7 +17231,7 @@ async function reports() {
                     },
                     "Suspend 7 days",
                   ),
-                  h(
+                  !M.admin ? null : h(
                     "button",
                     {
                       class: "ghost",
@@ -16944,7 +17246,7 @@ async function reports() {
                     "Ban",
                   ),
                 ],
-            h("button", { class: "ghost", onclick: purge(t.name) }, "Ban + delete all content"),
+            M.admin ? h("button", { class: "ghost", onclick: purge(t.name) }, "Ban + delete all content") : null,
           )
         : null,
     );
@@ -18007,7 +18309,15 @@ async function route() {
                           ? await inbox()
                           : h1 === "#/f"
                             ? await friends()
-                            : h1 === "#/r"
+                            : h1 === "#/dash"
+                              ? await dashPage()
+                              : h1 === "#/ausers"
+                              ? await usersPage()
+                              : h1 === "#/aposts"
+                              ? await postsPage()
+                              : h1 === "#/acomments"
+                              ? await commentsPage()
+                              : h1 === "#/r"
                               ? await reports()
                               : h1 === "#/w"
                                 ? await words()

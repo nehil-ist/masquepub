@@ -45,7 +45,7 @@ class PagesTest(OfflineCase):
         self.assertRegex(html, r'og:image" content="http://localhost/assets/og\.png\?v=\d+"')
         self.assertIn('<meta name="twitter:card" content="summary_large_image">', html)
         self.assertRegex(html, r'href="assets/style\.min\.css\?v=\d+"')
-        self.assertRegex(html, r'src="assets/app\.min\.js\?v=\d+"></script></body></html>\s*$')
+        self.assertRegex(html, r'src="assets/app(?:\.min)?\.js\?v=\d+"></script></body></html>\s*$')
         self.assertNotIn("@@", html)
         self.assertNotIn("<?", html)
         self.assertNotIn("<base", html)
