@@ -4172,3 +4172,41 @@ a.dr:active{background:var(--tint)}
 .dr.dm .dt{display:grid;gap:2px}
 .dr.dm .dt .hint{font-weight:400}
 .dgap{margin-top:14px}
+
+/* Management pages (People, Posts, Comments): same zine look as the dashboard */
+.mback{display:inline-flex;align-items:center;gap:6px;margin:0 0 14px;padding:4px 0;font:700 .74rem/1 var(--mono,ui-monospace,monospace);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.mback:hover{color:var(--ink)}
+.mtool{display:grid;gap:10px;margin:0 0 16px;padding:14px;border:2.5px solid var(--ol);border-radius:6px;background:color-mix(in srgb,var(--ink) 5%,var(--card));box-shadow:4px 4px 0 var(--sh)}
+.mtool .hint{line-height:1.5}
+.mtool .btn{display:flex;align-items:center;justify-content:center;gap:8px}
+.mtool select{min-height:44px;border:2px solid var(--ol);border-radius:6px;background:var(--card);font:700 .85rem var(--mono,ui-monospace,monospace);padding:0 10px}
+#app .mrow+.mrow,.mrow+.mrow{margin-top:14px}
+.mrow{display:grid;gap:14px;padding:14px;border:2.5px solid var(--ol);border-radius:6px;background:var(--card);box-shadow:4px 4px 0 var(--sh)}
+.mrow.bad{box-shadow:inset 6px 0 0 var(--ember),4px 4px 0 var(--sh);padding-left:20px}
+.mhead{display:flex;align-items:flex-start;gap:12px;min-width:0}
+.mhead>.av{flex:none;border:2px solid var(--ol);border-radius:50%;overflow:hidden}
+.mhead>.dk{margin-top:2px}
+.mwho{display:grid;gap:3px;min-width:0;flex:1}
+.mwho b{font:700 1rem/1.25 var(--mono,ui-monospace,monospace);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mwho .hint{font-size:.74rem}
+.mtags{display:flex;flex-wrap:wrap;gap:6px}
+.mhead>.mtags{justify-content:flex-end;flex:none}
+.dk.bad{background:var(--ember);border-color:var(--ember);color:#fff}
+.mbody{margin:0;padding:10px 12px;border-left:4px solid var(--edge);background:var(--soft);font-size:.92rem;line-height:1.5;overflow-wrap:anywhere;white-space:pre-wrap}
+.mstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:2px solid var(--ol);border-radius:6px;overflow:hidden;background:color-mix(in srgb,var(--ink) 4%,var(--card))}
+.mstats.m2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.mstat{display:grid;gap:4px;justify-items:center;padding:9px 4px;min-width:0}
+.mstat+.mstat{border-left:2px dashed var(--line)}
+.mstat b{font:700 .85rem/1 var(--mono,ui-monospace,monospace);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mstat small{font:700 .56rem/1 var(--mono,ui-monospace,monospace);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.mnote{margin:0;padding:8px 0 0;border-top:2px dashed var(--line)}
+.macts{display:flex;gap:10px}
+.macts .mact,.macts .ghost{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px}
+.macts .mact.danger{color:var(--ember);border-color:var(--ember);box-shadow:3px 3px 0 color-mix(in srgb,var(--ember) 45%,var(--sh))}
+.mpager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px}
+.mpager .ghost{min-height:40px;padding:0 14px}
+.mpager .fcn{flex:none}
+@media(max-width:380px){.mstat small{font-size:.5rem;letter-spacing:.06em}.macts{gap:8px}}
+.mtool select{width:100%}.mpager .fcn{order:0}
+.mstat b{font-size:.8rem}
+html .mtool select{width:100%;box-sizing:border-box;max-width:none}

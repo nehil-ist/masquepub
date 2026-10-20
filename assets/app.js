@@ -1269,6 +1269,7 @@ const IC = {
   reply: '<polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>',
   gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
   star: '<path d="M12 3.2l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.7 6.8 19.4l1-5.9L3.5 9.4l5.9-.8z"/>',
+  trash: '<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
   pin: '<path d="M12 17v5"/><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/>',
   more: '<circle cx="5" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="19" cy="12" r="1.7" fill="currentColor"/>',
   home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
@@ -16816,43 +16817,24 @@ function appealSheet() {
 }
 /* ===== Management: a dashboard for every role, and users / posts / comments management for staff ===== */
 const MGROLE = { admin: "Admin", mod: "Moderator", user: "User" },
-  mgWhen = (t) => (t ? new Date(t * 1000).toLocaleDateString() : "never"),
+  mgWhen = (t) => (t ? new Date(t * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "never"),
   mgTiles = (list) => h("div", { class: "stiles" }, ...list.map(([n, l]) => h("div", { class: "stile" }, h("b", {}, String(n)), h("small", {}, l)))),
   mgBtn = (label, hash) => h("button", { type: "button", class: "ghost", style: "display:block;width:100%;margin-top:8px", onclick: () => (location.hash = hash) }, label),
-  mgBack = () => h("button", { type: "button", class: "ghost", onclick: () => (location.hash = M && M.mod ? "#/dash" : "#/") }, "\u2190 Dashboard"),
+  mgBack = () => h("button", { type: "button", class: "mback", onclick: () => (location.hash = M && M.mod ? "#/dash" : "#/") }, ic("back", 16), "Dashboard"),
+  mgStat = (v, l) => h("div", { class: "mstat" }, h("b", {}, String(v)), h("small", {}, l)),
+  mgAct = (icon, label, fn, danger) => h("button", { type: "button", class: "ghost mact" + (danger ? " danger" : ""), onclick: fn }, ic(icon, 16), label),
   mgDenied = () => shell(emp("shield", "Staff only", "This page is for site moderators and admins."));
 function mgPager(r, go) {
   const from = r.total ? r.page * r.per + 1 : 0,
     to = Math.min(r.total, (r.page + 1) * r.per);
   return h(
     "div",
-    { class: "row", style: "justify-content:space-between;align-items:center;margin-top:8px" },
-    h("button", { type: "button", class: "ghost", disabled: r.page < 1, onclick: () => go(r.page - 1) }, "Previous"),
-    h("span", { class: "hint" }, from + "\u2013" + to + " of " + r.total),
-    h("button", { type: "button", class: "ghost", disabled: to >= r.total, onclick: () => go(r.page + 1) }, "Next"),
+    { class: "mpager" },
+    h("button", { type: "button", class: "ghost", disabled: r.page < 1, onclick: () => go(r.page - 1) }, "\u2190 Previous"),
+    h("span", { class: "fcn" }, from + "\u2013" + to + " of " + r.total),
+    h("button", { type: "button", class: "ghost", disabled: to >= r.total, onclick: () => go(r.page + 1) }, "Next \u2192"),
   );
 }
-/* Dashboard tiles: a number (gothic) over a mono label. With `to` the tile is a button that opens the page behind it; `hot` lights it ember when there is something waiting. */
-const mgNum = (n) => (+n >= 10000 ? (+n).toLocaleString() : String(n)),
-  mgTile = (n, l, o = {}) =>
-    h(
-      o.to ? "button" : "div",
-      { class: "dtile" + (o.hot && +n > 0 ? " hot" : "") + (o.to ? " lnk" : ""), ...(o.to ? { type: "button", onclick: () => (location.hash = o.to) } : {}) },
-      h("b", {}, mgNum(n)),
-      h("span", {}, l),
-    ),
-  mgGrid = (cols, ...tiles) => h("div", { class: "dgrid c" + cols }, ...tiles),
-  mgSec = (t, n) => h("div", { class: "fsh" }, h("span", {}, t), n != null ? h("i", { class: "fcn" }, String(n)) : null),
-  mgLink = (icon, title, sub, hash) =>
-    h(
-      "button",
-      { type: "button", class: "chat setgo", onclick: () => (location.hash = hash) },
-      h("span", { class: "seti", "aria-hidden": "true" }, ic(icon, 20)),
-      h("div", { class: "cx" }, h("b", {}, title), h("span", { class: "hint" }, sub)),
-      h("span", { class: "hint", "aria-hidden": "true" }, "›"),
-    ),
-  mgRows = (list, empty) =>
-    list.length ? h("div", { class: "dlist" }, ...list) : h("div", { class: "xempty" }, empty);
 async function dashPage() {
   const d = await api("mg_dash"),
     k = d.mine,
@@ -16989,7 +16971,7 @@ async function usersPage() {
   if (!(M && M.admin)) return mgDenied();
   const st = { q: "", role: "", page: 0 },
     list = h("div", {}),
-    q = h("input", { type: "search", placeholder: "Search name or nickname", "aria-label": "Search people", maxlength: 20 }),
+    q = h("input", { type: "search", class: "xsearch", placeholder: "Search name or nickname", "aria-label": "Search people", maxlength: 20 }),
     rs = h("select", { "aria-label": "Show" }, ...[["", "Everyone"], ["user", "Users"], ["mod", "Moderators"], ["admin", "Admins"], ["suspended", "Suspended"]].map(([v, l]) => h("option", { value: v }, l)));
   const load = async () => {
     let r;
@@ -16999,42 +16981,52 @@ async function usersPage() {
       rc(list, h("p", { class: "err" }, (x && x.e) || "Could not load."));
       return;
     }
-    const row = (u) =>
-      h(
+    const row = (u) => {
+      const sus = u.sus > Date.now() / 1000;
+      return h(
         "div",
-        { class: "card rep" },
-        h("b", {}, "@" + u.name + (u.nick ? " \u00b7 " + u.nick : "")),
-        h("p", { class: "hint" }, MGROLE[u.role] + " \u00b7 joined " + mgWhen(u.ts) + " \u00b7 last seen " + mgWhen(u.la) + " \u00b7 " + u.posts + " posts \u00b7 " + u.comments + " comments" + (u.sus > Date.now() / 1000 ? (u.sus >= 2e9 ? " \u00b7 banned" : " \u00b7 suspended") : "")),
+        { class: "mrow" + (sus ? " bad" : "") },
+        h(
+          "div",
+          { class: "mhead" },
+          av(u, 46),
+          h(
+            "div",
+            { class: "mwho" },
+            h("b", {}, u.nick || "@" + u.name),
+            u.nick ? h("small", { class: "hint" }, "@" + u.name) : null,
+            h("div", { class: "mtags" }, h("i", { class: "dk" }, MGROLE[u.role]), sus ? h("i", { class: "dk bad" }, u.sus >= 2e9 ? "banned" : "suspended") : null),
+          ),
+        ),
+        h("div", { class: "mstats" }, mgStat(u.posts, "posts"), mgStat(u.comments, "comments"), mgStat(mgWhen(u.ts), "joined"), mgStat(mgWhen(u.la), "last seen")),
         u.role === "admin"
-          ? h("p", { class: "hint" }, "Admins are set in the server settings.")
+          ? h("p", { class: "hint mnote" }, "Admins are set in the server settings.")
           : h(
               "div",
-              { class: "row" },
-              h("button", { type: "button", class: "ghost", onclick: () => mgUserSheet(u.name, load) }, "Edit"),
-              h(
-                "button",
-                {
-                  type: "button",
-                  class: "ghost",
-                  onclick: async () => {
-                    if (!(await cbox("Delete @" + u.name + " and everything they made (posts, comments, messages, photos)? This cannot be undone."))) return;
-                    try {
-                      await api("mg_udel", fd({ name: u.name }));
-                      load();
-                    } catch (x) {
-                      alert((x && x.e) || "Could not delete.");
-                    }
-                  },
-                },
+              { class: "macts" },
+              mgAct("pencil", "Edit", () => mgUserSheet(u.name, load)),
+              mgAct(
+                "trash",
                 "Delete",
+                async () => {
+                  if (!(await cbox("Delete @" + u.name + " and everything they made (posts, comments, messages, photos)? This cannot be undone."))) return;
+                  try {
+                    await api("mg_udel", fd({ name: u.name }));
+                    load();
+                  } catch (x) {
+                    alert((x && x.e) || "Could not delete.");
+                  }
+                },
+                1,
               ),
             ),
       );
-    rc(list, r.users.length ? r.users.map(row) : h("p", { class: "hint" }, "Nobody matches."), mgPager(r, (p) => { st.page = p; load(); }));
+    };
+    rc(list, r.users.length ? r.users.map(row) : h("div", { class: "xempty" }, "Nobody matches."), mgPager(r, (p) => { st.page = p; load(); }));
   };
   q.addEventListener("input", () => { st.q = q.value; st.page = 0; clearTimeout(q._t); q._t = setTimeout(load, 250); });
   rs.addEventListener("change", () => { st.role = rs.value; st.page = 0; load(); });
-  shell([big("People"), mgBack(), h("div", { class: "card" }, h("button", { type: "button", class: "btn full", onclick: () => mgUserSheet("", load) }, "Add a person"), q, rs), list]);
+  shell(h("div", { class: "dash" }, big("People"), mgBack(), h("div", { class: "mtool" }, q, rs, h("button", { type: "button", class: "btn full", onclick: () => mgUserSheet("", load) }, ic("plus", 16), "Add a person")), list));
   load();
 }
 async function mgContent(kind) {
@@ -17043,7 +17035,7 @@ async function mgContent(kind) {
     cfg = post ? { list: "mg_mposts", edit: "mg_mpedit", del: "mg_mpdel", field: "cap", key: "posts", title: "Posts" } : { list: "mg_mcomments", edit: "mg_mcedit", del: "mg_mcdel", field: "txt", key: "comments", title: "Comments" },
     st = { q: "", page: 0 },
     list = h("div", {}),
-    q = h("input", { type: "search", placeholder: "Search the text", "aria-label": "Search", maxlength: 40 });
+    q = h("input", { type: "search", class: "xsearch", placeholder: "Search the text", "aria-label": "Search", maxlength: 40 });
   const edit = (x) =>
       sheet("Edit " + kind, (close) => {
         const t = h("textarea", { "aria-label": "Text", maxlength: post ? 1000 : 300, style: "min-height:120px" }, x[cfg.field] || ""),
@@ -17080,38 +17072,41 @@ async function mgContent(kind) {
       const row = (x) =>
         h(
           "div",
-          { class: "card rep" },
-          h("b", {}, (x.masked ? "Masque" : "@" + x.author) + " \u00b7 " + ago(x.ts) + (+x.hold ? " \u00b7 held back" : "") + (+x.vis ? " \u00b7 not public" : "")),
-          h("p", {}, x[cfg.field] || (x.himg ? "(photo only)" : "(no text)")),
-          post ? h("p", { class: "hint" }, x.likes + " likes \u00b7 " + x.comments + " comments") : null,
+          { class: "mrow" + (+x.hold || +x.vis ? " bad" : "") },
           h(
             "div",
-            { class: "row" },
-            h("button", { type: "button", class: "ghost", onclick: () => (location.hash = "#/p/" + (post ? x.id : x.pid)) }, "View"),
-            h("button", { type: "button", class: "ghost", onclick: () => edit(x) }, "Edit"),
-            h(
-              "button",
-              {
-                type: "button",
-                class: "ghost",
-                onclick: async () => {
-                  if (!(await cbox("Delete this " + kind + (post ? " and its comments" : "") + "?"))) return;
-                  try {
-                    await api(cfg.del, fd({ id: x.id }));
-                    load();
-                  } catch (y) {
-                    alert((y && y.e) || "Could not delete.");
-                  }
-                },
-              },
+            { class: "mhead" },
+            h("i", { class: "dk" }, kind),
+            h("div", { class: "mwho" }, h("b", {}, x.masked ? "Masque" : "@" + x.author), h("small", { class: "hint" }, ago(x.ts))),
+            h("div", { class: "mtags" }, +x.hold ? h("i", { class: "dk bad" }, "held back") : null, +x.vis ? h("i", { class: "dk bad" }, "not public") : null),
+          ),
+          h("p", { class: "mbody" }, x[cfg.field] || (x.himg ? "(photo only)" : "(no text)")),
+          post ? h("div", { class: "mstats m2" }, mgStat(x.likes, "likes"), mgStat(x.comments, "comments")) : null,
+          h(
+            "div",
+            { class: "macts" },
+            mgAct("eye", "View", () => (location.hash = "#/p/" + (post ? x.id : x.pid))),
+            mgAct("pencil", "Edit", () => edit(x)),
+            mgAct(
+              "trash",
               "Delete",
+              async () => {
+                if (!(await cbox("Delete this " + kind + (post ? " and its comments" : "") + "?"))) return;
+                try {
+                  await api(cfg.del, fd({ id: x.id }));
+                  load();
+                } catch (y) {
+                  alert((y && y.e) || "Could not delete.");
+                }
+              },
+              1,
             ),
           ),
         );
-      rc(list, r[cfg.key].length ? r[cfg.key].map(row) : h("p", { class: "hint" }, "Nothing found."), mgPager(r, (p) => { st.page = p; load(); }));
+      rc(list, r[cfg.key].length ? r[cfg.key].map(row) : h("div", { class: "xempty" }, "Nothing found."), mgPager(r, (p) => { st.page = p; load(); }));
     };
   q.addEventListener("input", () => { st.q = q.value; st.page = 0; clearTimeout(q._t); q._t = setTimeout(load, 250); });
-  shell([big(cfg.title), mgBack(), h("div", { class: "card" }, q, h("p", { class: "hint" }, "Masque posts are listed as \u201cMasque\u201d: nobody can see whose they are.")), list]);
+  shell(h("div", { class: "dash" }, big(cfg.title), mgBack(), h("div", { class: "mtool" }, q, h("p", { class: "hint" }, "Masque posts are listed as \u201cMasque\u201d: nobody can see whose they are.")), list));
   load();
 }
 const postsPage = () => mgContent("post"),
